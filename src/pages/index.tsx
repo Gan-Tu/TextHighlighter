@@ -1,10 +1,11 @@
-import styles from "@/styles/Home.module.css";
-import { useRef, useState } from "react";
+import styles from '@/styles/Home.module.css';
+import { useRef, useState } from 'react';
 
 export default function Home() {
   const [paragraphs, setParagraphs] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [selectedText, setSelectedText] = useState<string>("");
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [isCompleted, setIsCompleted] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -12,8 +13,10 @@ export default function Home() {
     if (!file) return;
 
     const text = await file.text();
-    const lines = text.split("\n").filter((line) => line.trim());
+    const lines = text.split('\n').filter(line => line.trim());
     setParagraphs(lines);
+    setIsCompleted(false);
+    setCurrentIndex(0);
   };
 
   const handleSelection = () => {
@@ -31,20 +34,56 @@ export default function Home() {
     };
 
     try {
-      const response = await fetch("/api/save-selection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry)
+      const response = await fetch('/api/save-selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
       });
 
       if (response.ok) {
-        setSelectedText("");
-        setCurrentIndex((prev) => Math.min(prev + 1, paragraphs.length - 1));
+        setSelectedText('');
+        if (currentIndex === paragraphs.length - 1) {
+          setIsCompleted(true);
+        } else {
+          setCurrentIndex(prev => prev + 1);
+        }
       }
     } catch (error) {
-      alert("Error saving selection");
+      alert('Error saving selection');
     }
   };
+
+  const handleSkip = () => {
+    setSelectedText('');
+    if (currentIndex === paragraphs.length - 1) {
+      setIsCompleted(true);
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
+  };
+
+  const handleReset = () => {
+    setIsCompleted(false);
+    setParagraphs([]);
+    setCurrentIndex(0);
+    setSelectedText('');
+    if (fileInput.current) {
+      fileInput.current.value = '';
+    }
+  };
+
+  if (isCompleted) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.completedSection}>
+          <h1>🎉 You've finished all paragraphs! 🎉</h1>
+          <button onClick={handleReset} className={styles.button}>
+            Start New File
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -64,25 +103,31 @@ export default function Home() {
           <div className={styles.progress}>
             Paragraph {currentIndex + 1} of {paragraphs.length}
           </div>
-
-          <div className={styles.paragraph} onMouseUp={handleSelection}>
+          
+          <div 
+            className={styles.paragraph}
+            onMouseUp={handleSelection}
+          >
             {paragraphs[currentIndex]}
           </div>
 
           <div className={styles.selection}>
-            Selected text:{" "}
-            {selectedText && (
-              <span className={styles.highlighted}>{selectedText}</span>
-            )}
+            Selected text: {selectedText && <span className={styles.highlighted}>{selectedText}</span>}
           </div>
 
           <div className={styles.controls}>
             <button
-              onClick={() => setCurrentIndex((prev) => Math.max(prev - 1, 0))}
+              onClick={() => setCurrentIndex(prev => Math.max(prev - 1, 0))}
               disabled={currentIndex === 0}
               className={styles.button}
             >
               Previous
+            </button>
+            <button
+              onClick={handleSkip}
+              className={`${styles.button} ${styles.skipButton}`}
+            >
+              Skip
             </button>
             <button
               onClick={handleConfirm}
